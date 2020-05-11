@@ -30,8 +30,8 @@ Dans ce travail de laboratoire, vous allez configurer des routeurs Cisco émulé
 -	Capture Sniffer avec filtres précis sur la communication à épier
 -	Activation du mode « debug » pour certaines fonctions du routeur
 -	Observation des protocoles IPSec
- 
- 
+
+
 ## Matériel
 
 La manière la plus simple de faire ce laboratoire est dans les machines des salles de labo. Le logiciel d'émulation c'est eve-ng. Vous trouverez un [guide très condensé](files/Fonctionnement_EVE-NG.pdf) pour l'utilisation de eve-ng ici.
@@ -110,6 +110,8 @@ Un « protocol » différent de `up` indique la plupart du temps que l’interfa
 
 **Réponse :**  
 
+Aucun problème rencontré ici. 
+
 ---
 
 
@@ -147,6 +149,10 @@ Pour votre topologie il est utile de contrôler la connectivité entre :
 
 **Réponse :**  
 
+Tous les pings effectués passent correctement.
+
+Par contre, en étant passé à l’étape suivante, il n’était pas possible de ping R1 depuis VPC. Pour pallier à ce problème, il a fallu utiliser la commande `ip dhcp` sur le VPC.
+
 ---
 
 - Activation de « debug » et analyse des messages ping.
@@ -169,6 +175,12 @@ Pour déclencher et pratiquer les captures vous allez « pinger » votre routeur
 ---
 
 **Screenshots :**  
+
+
+
+![](./images/img1.png)
+
+![](./images/img2.png)
 
 ---
 
@@ -241,6 +253,20 @@ Vous pouvez consulter l’état de votre configuration IKE avec les commandes su
 
 **Réponse :**  
 
+![](./images/img3.png)
+
+![](./images/img4.png)
+
+
+
+On remarque qu’il y a utilisation de AES 256 pour la politiqique  de priorité 20, qui est un très bon algorithme. Par contre, le groupe de Diffie-Helman est peu sécurisé car il n’utilise que 1536 bits. Depuis 2013, il est recommandé d’utiliser un groupe avec au moins 2048 bits, donc au moins le groupe 14. Il est aussi recommandé de plutôt utiliser un chiffrement avec les courbes elliptiques, groupe 19 ou 20.
+
+Concernant la politique de priorité 10 de R2, il utilise MD5, qui est un très mauvais algorithme de hachage car le risque de collision est trop important. Il est donc à éviter. On voit aussi qu’il utilise 3-DES qui est encore suffisant actuellement. Par contre, comme R1 n’implémente pas de politique utilisant 3-DES, celle-ci ne sera pas utilisée.
+
+Chacun utilise une clé partagée pour démarrer l‘échange de clé.
+
+Toutes les réponses peuvent être trouvées dans la documentation Cisco en suivant ce [lien](https://www.cisco.com/en/US/docs/ios-xml/ios/sec_conn_ikevpn/configuration/15-1mt/Configuring_Internet_Key_Exchange_Version_2.html#GUID-6F6D8166-508A-4669-9DDC-4FE7AE9B9939).
+
 ---
 
 
@@ -249,6 +275,12 @@ Vous pouvez consulter l’état de votre configuration IKE avec les commandes su
 ---
 
 **Réponse :**  
+
+<img src="./images/img5.png" style="zoom:150%;" />
+
+
+
+On remarque qu’une clé partagée, trop simple, a été configurée utilisée pour l’authentification et est “cisco-1”.
 
 ---
 
@@ -343,6 +375,30 @@ Pensez à démarrer votre sniffer sur la sortie du routeur R2 vers internet avan
 
 **Réponse :**  
 
+Lors de la configuration d’IPSEC, nous avons obtenu les warning suivants: 
+
+![](./images/img6.png)
+
+On comprend alors que les paramètres entrés ne sont pas les plus optimums concernant la performance: la durée de vie est trop courte par rapport à ce qui est recommandé ce qui implique une regénération de clé intervenant trop souvent.
+
+
+
+Configurations obtenues sur les deux routeurs:
+
+![ipsec_conf1](./images/img7.png)
+
+![ipsec_conf2](./images/img8.png)
+
+
+
+
+
+On voit que les ping passent au final correctement:
+
+![](./images/img9.png)
+
+![](./images/img10.png)
+
 ---
 
 **Question 7: Reportez dans votre rapport une petite explication concernant les différents « timers » utilisés par IKE et IPsec dans cet exercice (recherche Web). :**
@@ -350,6 +406,14 @@ Pensez à démarrer votre sniffer sur la sortie du routeur R2 vers internet avan
 ---
 
 **Réponse :**  
+
+`crypto isakmp lifetime` : durée avant qu’une nouvelle clé de chiffrement soit utilisée.
+
+Si on se rend dans la [documentation](https://www.cisco.com/c/en/us/td/docs/ios-xml/ios/sec_conn_ikevpn/configuration/xe-3s/sec-ike-for-ipsec-vpns-xe-3s-book/sec-key-exch-ipsec.html) de Cisco concernant isakmp.
+
+`crypto ipsec security-association`:  indique le temps de vie de la security association. Permet le rétablissement de la connexion sans avoir besoin de refournir la clé.
+
+Si on se rend dans la [documentation](https://www.cisco.com/c/en/us/td/docs/ios/12_2/security/command/reference/srfipsec.html) de Cisco concernant IPSec
 
 ---
 
@@ -365,8 +429,15 @@ En vous appuyant sur les notions vues en cours et vos observations en laboratoir
 
 **Réponse :**  
 
----
+![](./images/img11.png)
 
+
+
+Nous voyons que tout d’abord il utilise ISAKMP, faisant partie de IKE. Cela se produit lors de la communication pour les Security Associations. Par la suite, il utilise ESP afin d’encapsuler les paquets pour qu’ils soient sécurisés.
+
+Nous pouvons trouver de la documentation sur les différents protocoles sur le site de [cisco](https://www.cisco.com/c/en/us/td/docs/net_mgmt/vpn_solutions_center/2-0/ip_security/provisioning/guide/IPsecPG1.html#wp1022217).
+
+---
 
 **Question 9: Expliquez si c’est un mode tunnel ou transport.**
 
@@ -374,8 +445,22 @@ En vous appuyant sur les notions vues en cours et vos observations en laboratoir
 
 **Réponse :**  
 
----
+On a défini un mode tunnel. On le sait dès lors que l’on a utilisé cette commande lors de la configuration: 
 
+```
+crypto ipsec transform-set STRONG esp-aes 192 esp-sha-hmac 
+  mode tunnel
+```
+
+
+
+![](./images/img12.png)
+
+Sur l’image, on voit qu’il y a le protocole ESP qui est détecté par R2 qui est utilisé pour l’encapsulation des paquets (en haut à gauche). On voit que VPC a correctement ping et que les informations sont finalement reçues en clair par R1 (en haut à droite). C’est par définition ce qu’un tunnel fait
+
+
+
+---
 
 **Question 10: Expliquez quelles sont les parties du paquet qui sont chiffrées. Donnez l’algorithme cryptographique correspondant.**
 
@@ -383,8 +468,11 @@ En vous appuyant sur les notions vues en cours et vos observations en laboratoir
 
 **Réponse :**  
 
----
+L’entierté du paquet est chiffré. Nous avons trouvé cette information dans les slides de théories (SRX20-VPN-IPSec-Part1.pdf slide 18)
 
+On utilise AES-192 comme algorithme de chiffrement.
+
+---
 
 **Question 11: Expliquez quelles sont les parties du paquet qui sont authentifiées. Donnez l’algorithme cryptographique correspondant.**
 
@@ -392,13 +480,20 @@ En vous appuyant sur les notions vues en cours et vos observations en laboratoir
 
 **Réponse :**  
 
----
+En mode tunnel c’est tout le paquet qui est signé, un header contenant la signature est ensuite rajouté au paquet. (SRX20-VPN-IPSec-Part2-Part3.pdf slide 9)
 
+On utilise HMAC et SHA1.
+
+---
 
 **Question 12: Expliquez quelles sont les parties du paquet qui sont protégées en intégrité. Donnez l’algorithme cryptographique correspondant.**
 
 ---
 
 **Réponse :**  
+
+C’est tout le paquet qui est protégé en intégrité.
+
+(SRX20-VPN-IPSec-Part2-Part3.pdf slide 9)
 
 ---
